@@ -72,11 +72,11 @@ if len(sys.argv) == 1:
             shown_reminders.add(m.group(1))
         for r in data:
             reminder = r["reminder"]
-            if reminder in shown_reminders:
+            escaped = reminder.replace("&", "&amp;")
+            if escaped in shown_reminders:
                 continue
             if os.fork() == 0:
                 start = time.time()
-                escaped = reminder.replace("&", "&amp;")
                 subprocess.run(
                     [
                         "timeout",
