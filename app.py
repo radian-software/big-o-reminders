@@ -15,7 +15,7 @@ class Reminder:
     def __init__(self, text, hostname_allowlist=None, timeout=None):
         self.text = text
         self.uuid = str(uuid.uuid4())
-        self.time = datetime.now()
+        self.time = datetime.now().astimezone()
         self.hostname_allowlist = set()
         self.hostname_denylist = set()
         if hostname_allowlist:
@@ -23,7 +23,7 @@ class Reminder:
         self.timeout = timeout or timedelta(hours=1)
 
     def is_stale(self):
-        age = datetime.now() - self.time
+        age = datetime.now().astimezone() - self.time
         # We have delivered to at least one host, and it's been at
         # least a day since then.
         return self.hostname_denylist and age > self.timeout
@@ -32,7 +32,7 @@ class Reminder:
     def loads(cls, obj):
         r = cls(obj["text"])
         r.uuid = obj["uuid"]
-        r.time = datetime.fromtimestamp(obj["time"])
+        r.time = datetime.fromtimestamp(obj["time"]).astimezone()
         r.timeout = timedelta(seconds=obj["timeout"])
         r.hostname_allowlist = set(obj["hostname_allowlist"])
         r.hostname_denylist = set(obj["hostname_denylist"])
@@ -68,7 +68,9 @@ class ReminderList:
 
     def post(self, reminder_text, hostname_allowlist=None, timeout=None):
         reminder = Reminder(
-            reminder_text, hostname_allowlist=hostname_allowlist, timeout=timeout,
+            reminder_text,
+            hostname_allowlist=hostname_allowlist,
+            timeout=timeout,
         )
         logging.info(f"POST {repr(reminder_text)} for={hostname_allowlist or 'any'}")
         self.reminders.append(reminder)
@@ -87,7 +89,13 @@ class ReminderList:
                 continue
             if hostname in reminder.hostname_denylist:
                 continue
-            messages.append({"reminder": reminder.text, "uuid": reminder.uuid})
+            messages.append(
+                {
+                    "reminder": reminder.text,
+                    "uuid": reminder.uuid,
+                    "since": reminder.time.isoformat(),
+                }
+            )
         return messages
 
     def delete(self, hostname, uuids):
@@ -96,7 +104,7 @@ class ReminderList:
             if reminder.uuid in uuids:
                 logging.info(f"DELETE {repr(reminder.text)} for={hostname}")
                 reminder.hostname_denylist.add(hostname)
-                reminder.time = datetime.now()
+                reminder.time = datetime.now().astimezone()
 
     @property
     def count(self):
